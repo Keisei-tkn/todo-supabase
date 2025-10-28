@@ -1,33 +1,27 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import LoadingScreen from "@/components/LoadingScreen";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { useFonts } from "expo-font";
+import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect, useState } from "react";
+import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
+import "react-native-reanimated";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 
-import { useColorScheme } from '@/components/useColorScheme';
-
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+export { ErrorBoundary } from "expo-router";
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  initialRouteName: "(tabs)",
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -42,18 +36,49 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return <AppProviders />;
 }
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+function AppProviders() {
+  const [isDark, setIsDark] = useState(false);
+  const theme = isDark ? MD3DarkTheme : MD3LightTheme;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <AuthProvider>
+      <PaperProvider theme={theme}>
+        <InitialLayout />
+      </PaperProvider>
+    </AuthProvider>
+  );
+}
+
+function InitialLayout() {
+  const { session, loading } = useAuth(); //
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const inTabsGroup = segments[0] === "(tabs)";
+
+    if (session && !inTabsGroup) {
+      router.replace("/(tabs)");
+    } else if (!session) {
+      if (segments[0] !== "main") {
+        router.replace("/main");
+      }
+    }
+  }, [session, loading, segments, router]);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <Stack>
+      <Stack.Screen name="main" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    </Stack>
   );
 }
